@@ -1,0 +1,12 @@
+node_modules/
+.expo/
+dist/
+coverage/
+.env*
+!.env.example
+*-firebase-adminsdk-*.json
+*service-account*.json
+privado/
+contexto/
+*.pem
+*.key
