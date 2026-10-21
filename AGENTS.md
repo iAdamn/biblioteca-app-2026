@@ -1,13 +1,16 @@
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
-Entrega propia Biblioteca, D03 activado20/10/2026. API exclusiva
-https://biblioteca-api-2026.vercel.app. Conservar versiones y lockfile docentes;
-las recomendaciones de cinco parches no justifican una actualización general.
-Ningún secreto Firebase ni cuenta de desarrollo entra en el bundle. Sesión en
-SecureStore y datos en SQLite por uid/rol. D03 solo operaciones online; outbox y
-activity_log son estructura. D04 requiere activación explícita antes de implementar
-cola/sincronización offline/conflictos/cámara/galería. Referencia y LICENSE en
-PROCEDENCIA.md. Informes, Word y credenciales fuera de este repositorio.
+Entrega propia Biblioteca, D04 del21/10/2026. API exclusiva
+https://biblioteca-api-2026.vercel.app. Conservar versiones/lock; único ajuste D04:
+expo-file-system57.0.7 directo, ya resuelto transitivamente, para temporales.
+No aplicar audit fix --force ni actualizaciones generales. Avisos heredados npm
+pendientes de triage explícito. Ningún secreto Firebase/cuenta en bundle.
+Tokens SecureStore; datos/cola SQLite por uid/rol. Migración3 y FIFO activos.
+Logout voluntario purga con aviso; invalidación forzada preserva cola solo de su
+propietario. No certificar hardware D04 a partir de mocks/exportaciones.
+D05 requiere activación explícita. No correo, cambio de visibilidad o backend
+sin necesidad autorizada. Referencia, SHA y LICENSE en PROCEDENCIA.md.
+Informes, Word y credenciales permanecen fuera de este repositorio.
 
 ## Expo has changed — do not trust your training data
 

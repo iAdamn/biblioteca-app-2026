@@ -9,6 +9,13 @@ const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 describe('createApiClient', () => {
+  it('conserva Retry-After del servidor para controlar reintentos', async () => {
+    const response = json(429, { error: { code: 'RATE_LIMITED', message: 'Espera' } });
+    response.headers.set('Retry-After', '60');
+    const client = createApiClient({ baseUrl: 'http://api', timeoutMs: 1000,
+      fetchImpl: jest.fn().mockResolvedValue(response) });
+    await expect(client.get('/api/books')).rejects.toMatchObject({ status: 429, retryAfterMs: 60000 });
+  });
   it('no reenvía una operación 401 de A autenticada como B tras cambiar cuenta', async () => {
     let key = 'cuenta-A';
     const fetchImpl = jest.fn().mockResolvedValue(json(401, { error: { code: 'UNAUTHENTICATED' } }));

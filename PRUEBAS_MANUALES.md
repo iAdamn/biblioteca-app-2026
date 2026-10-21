@@ -25,6 +25,36 @@ Resultados físicos se registran fuera del repositorio, diferenciando observaci�
 del agente de comunicación del usuario. `npm test` usa almacenamiento seguro
 en memoria y SQLite Node: no acredita KeyStore ni navegación física.
 
-Modo avión, cola de solicitudes, reconexión automática, conflictos, cámara y
-galería requieren activación D04. Hoy no se certifican. La base incluye sus cinco
-tablas, pero outbox/activity_log no tienen flujo operativo.
+## D04 preparado pero pendiente de prueba física
+
+El21/10 el usuario decidió no participar en comprobaciones físicas. No hay
+capturas o pruebas de cámara, permisos, modo avión o reconexión nativa D04.
+Estas instrucciones son pendientes; las pruebas Node/adaptadores no las sustituyen.
+
+1. Student: sincronizar con red, abrir catálogo y detalle, activar modo avión,
+   solicitar un libro disponible sin préstamo activo. Debe aparecer Pendiente de
+   envío, sin confirmación servidor. Cerrar/reabrir la app y comprobar misma intención.
+2. Recuperar internet: esperar sincronización o pulsar indicador. Debe sustituirse
+   pendiente por Solicitado confirmado, contador cero y un solo préstamo servidor.
+   Dos pulsaciones no deben generar dos intenciones. Bibliotecario rechaza o completa
+   devolución para dejar el inventario conforme a reglas, sin reset.
+3. Conflicto: con dos estudiantes y un libro de prueba exclusivo, A guarda offline;
+   B solicita online y librarian aprueba último ejemplar. A reconecta: conflicto409
+   comprensible en Mis préstamos y registro en Perfil. Descartar reconoce el mensaje;
+   no fuerza stock ni elimina evidencia histórica. No usar libros ajenos para fixtures.
+4. Pendientes A: logout exige aviso y confirmación. Cancelar conserva; confirmar
+   purga sus datos privados. Entrar B no muestra ni envía operaciones A. Caducidad
+   forzada conserva base A aislada, recuperable solo tras autenticar mismo uid/rol.
+5. Librarian online en detalle: Cámara pide permiso al pulsar. Probar aceptar,
+   denegar y denegar definitivamente, mensaje/Ajustes; cancelar captura sin subir.
+   Galería usa selector del sistema; cancelar conserva la portada. Seleccionar imagen,
+   revisar vista previa, cancelar y repetir con Subir portada. Otro cliente debe
+   recibir la nueva versión. Student no ve gestión; sin API no se encolan imágenes.
+6. Comprobar errores de imagen inválida/tamaño y trazas sin base64/tokens. Documentar
+   modelo Android, versión, Expo Go/SDK, pasos y resultados reales, sin credenciales.
+
+El arranque frío sin red depende también de que Expo Go disponga del bundle de
+desarrollo. No confundir abrir una app ya cargada offline con poder descargarla
+desde Metro sin red. Si Expo Go no conserva ese bundle, la prueba de arranque frío
+requiere un build nativo adecuado; hoy no hay APK ni ese resultado verificado.
+iOS solo exportado; permisos y sandbox nativos requieren prueba en su plataforma.

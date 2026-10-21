@@ -1,55 +1,15 @@
-import { Pressable, StyleSheet, View } from 'react-native';
-
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { formatDateTime } from '@/lib/text';
-import { useData } from '@/providers/data-provider';
-
+import { Pressable } from 'react-native';
 import { ThemedText } from './themed-text';
-
-/**
- * Informa el estado de conectividad y de la cola sin bloquear la pantalla:
- * sin conexión → se muestran datos guardados; con cambios pendientes → se avisa cuántos.
- */
+import { useData } from '@/providers/data-provider';
+import { formatDateTime } from '@/lib/text';
 export function ConnectionBanner() {
-  const theme = useTheme();
-  const { online, lastError, lastSyncAt, syncNow } = useData();
-
-  let message: string | null = null;
-  let color: string = theme.warning;
-
-  if (!online) {
-    message = `Sin conexión · Mostrando datos guardados (última sincronización: ${formatDateTime(lastSyncAt)})`;
-  } else if (lastError) {
-    message = `${lastError} Toca para reintentar.`;
-    color = theme.danger;
-  }
-
-  if (!message) return null;
-  return (
-    <Pressable
-      onPress={() => void syncNow()}
-      accessibilityRole="button"
-      accessibilityLabel={message}
-      style={[styles.banner, { borderColor: color }]}>
-      <View style={[styles.dot, { backgroundColor: color }]} />
-      <ThemedText type="small" style={styles.text}>
-        {message}
-      </ThemedText>
-    </Pressable>
-  );
+  const { networkAvailable, online, syncing, pendingCount, attentionCount, lastSyncAt, lastError, syncNow } = useData();
+  const message = !networkAvailable ? 'Sin conexión · mostrando datos guardados' : syncing ? 'Sincronizando…' :
+    attentionCount > 0 ? `Atención requerida: ${attentionCount} operación(es). Consulta Mis préstamos o Perfil.` :
+    lastError ? `${lastError} Toca para reintentar.` : pendingCount > 0 ? `${pendingCount} cambio(s) pendiente(s) de enviar` :
+    online ? `Sincronizado · ${formatDateTime(lastSyncAt)}` : 'Red disponible; comprobando acceso a la API';
+  return <Pressable accessibilityRole="button" accessibilityLabel={message} onPress={() => void syncNow()}
+    style={{ padding: 10, borderWidth: 1, borderColor: attentionCount || lastError ? '#B42318' : '#705095', borderRadius: 10 }}>
+    <ThemedText type="small">{message}{!networkAvailable && pendingCount > 0 ? ` · ${pendingCount} pendiente(s)` : ''}</ThemedText>
+  </Pressable>;
 }
-
-const styles = StyleSheet.create({
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-  },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  text: { flex: 1 },
-});

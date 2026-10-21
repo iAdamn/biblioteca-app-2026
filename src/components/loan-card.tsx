@@ -34,12 +34,14 @@ interface LoanCardProps {
   online: boolean;
   busy: boolean;
   onAction: (loan: LocalLoan, action: LoanAction) => void;
+  onDismiss: (loan: LocalLoan) => void;
 }
 
-export function LoanCard({ loan, librarian, online, busy, onAction }: LoanCardProps) {
+export function LoanCard({ loan, librarian, online, busy, onAction, onDismiss }: LoanCardProps) {
   const theme = useTheme();
   const conflict = loan.syncState === 'conflict';
   const pending = loan.syncState === 'pending';
+  const attention = loan.operationState === 'attention';
 
   const statusColor = conflict
     ? theme.danger
@@ -50,7 +52,7 @@ export function LoanCard({ loan, librarian, online, busy, onAction }: LoanCardPr
         : loan.status === 'rejected'
           ? theme.danger
           : theme.textSecondary;
-  const statusText = conflict
+  const statusText = attention ? 'Atención requerida' : loan.operationState === 'in_flight' ? 'Enviando sin confirmación' : loan.operationState === 'rejected' ? 'Solicitud rechazada' : conflict
     ? 'No se pudo solicitar'
     : pending
       ? 'Pendiente de envío'
@@ -91,6 +93,16 @@ export function LoanCard({ loan, librarian, online, busy, onAction }: LoanCardPr
         {lines.join(' · ')}
       </ThemedText>
 
+      {conflict && !attention ? (
+        <>
+          <ThemedText type="small" style={{ color: theme.danger }}>
+            {loan.syncError}
+          </ThemedText>
+          <Button title="Descartar" variant="secondary" onPress={() => onDismiss(loan)} />
+        </>
+      ) : null}
+
+      {attention ? <ThemedText type="small">Cinco fallos temporales. Reintenta desde Perfil; se conserva el identificador.</ThemedText> : null}
       {librarian && !pending && !conflict && actionsFor(loan.status).length > 0 ? (
         <View style={styles.actions}>
           {actionsFor(loan.status).map((action) => (

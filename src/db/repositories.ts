@@ -6,6 +6,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { escapeLike, normalizeSearch } from '@/lib/text';
 import type { Book, LocalLoan, Loan, LoanStatus, SyncState } from '@/types';
+import { createOutboxRepo, createActivityRepo } from './outbox';
 
 // ───────────────────────────── Libros ─────────────────────────────
 
@@ -124,6 +125,7 @@ interface LoanRow {
   updated_at: string;
   sync_state: SyncState;
   sync_error: string | null;
+  operation_state?: LocalLoan['operationState'];
 }
 
 const toLoan = (r: LoanRow): LocalLoan => ({
@@ -142,6 +144,7 @@ const toLoan = (r: LoanRow): LocalLoan => ({
   updatedAt: r.updated_at,
   syncState: r.sync_state,
   syncError: r.sync_error,
+  operationState: r.operation_state,
 });
 
 export function createLoansRepo(db: SQLiteDatabase) {
@@ -169,14 +172,16 @@ export function createLoansRepo(db: SQLiteDatabase) {
   }
 
   return {
+    /** Uso interno de repositorios para confirmar préstamo y outbox en la misma transacción. */
+    writeInTransaction: insert,
     /** Préstamos del estudiante, o todos si userId es null (bibliotecario). */
     async list(userId: string | null): Promise<LocalLoan[]> {
       const rows = userId
         ? await db.getAllAsync<LoanRow>(
-            'SELECT * FROM loans WHERE user_id = ? ORDER BY requested_at DESC',
+            'SELECT l.*, q.state AS operation_state FROM loans l LEFT JOIN outbox q ON q.client_request_id=l.client_request_id AND q.owner_uid=l.user_id WHERE user_id = ? ORDER BY requested_at DESC',
             userId,
           )
-        : await db.getAllAsync<LoanRow>('SELECT * FROM loans ORDER BY requested_at DESC');
+        : await db.getAllAsync<LoanRow>('SELECT l.*, q.state AS operation_state FROM loans l LEFT JOIN outbox q ON q.client_request_id=l.client_request_id AND q.owner_uid=l.user_id ORDER BY requested_at DESC');
       return rows.map(toLoan);
     },
 
@@ -221,16 +226,17 @@ export function createLoansRepo(db: SQLiteDatabase) {
     async hasActiveForBook(userId: string, bookId: string): Promise<boolean> {
       const row = await db.getFirstAsync<{ n: number }>(
         `SELECT COUNT(*) AS n FROM loans
-          WHERE user_id = ? AND book_id = ? AND status IN ('requested','approved') AND sync_state <> 'conflict'`,
+          WHERE user_id = ? AND book_id = ? AND status IN ('requested','approved') AND (sync_state <> 'conflict' OR client_request_id IN (SELECT client_request_id FROM outbox WHERE owner_uid=? AND state='attention'))`,
         userId,
         bookId,
+        userId,
       );
       return (row?.n ?? 0) > 0;
     },
 
     async latestForBook(userId: string, bookId: string): Promise<LocalLoan | null> {
       const row = await db.getFirstAsync<LoanRow>(
-        'SELECT * FROM loans WHERE user_id = ? AND book_id = ? ORDER BY requested_at DESC LIMIT 1',
+        'SELECT l.*,q.state AS operation_state FROM loans l LEFT JOIN outbox q ON q.owner_uid=l.user_id AND q.client_request_id=l.client_request_id WHERE user_id = ? AND book_id = ? ORDER BY requested_at DESC LIMIT 1',
         userId,
         bookId,
       );
@@ -239,6 +245,9 @@ export function createLoansRepo(db: SQLiteDatabase) {
 
     async clear(): Promise<void> {
       await db.runAsync('DELETE FROM loans');
+    },
+    async dismiss(id: string): Promise<void> {
+      await db.runAsync("DELETE FROM loans WHERE id = ? AND sync_state = 'conflict'", id);
     },
   };
 }
@@ -268,17 +277,28 @@ export function createMetaRepo(db: SQLiteDatabase) {
   };
 }
 
-/** Tablas outbox/activity_log reservadas para D04, sin encolado ni sincronizador. */
 export function createRepositories(db: SQLiteDatabase) {
+  const loans = createLoansRepo(db);
+  // Solo SQL dentro de esta exclusión. Una petición de red nunca bloquea guardar offline.
+  let tail: Promise<unknown> = Promise.resolve();
+  function serialized<T extends object>(repo: T): T {
+    return Object.fromEntries(Object.entries(repo).map(([key, fn]) => [key, (...args: unknown[]) => {
+      const next = tail.catch(() => {}).then(() => fn(...args));
+      tail = next;
+      return next;
+    }])) as T;
+  }
   return {
-    books: createBooksRepo(db),
-    loans: createLoansRepo(db),
-    meta: createMetaRepo(db),
-    async clearPrivate() {
+    books: serialized(createBooksRepo(db)),
+    loans: serialized(loans),
+    outbox: serialized(createOutboxRepo(db, loans.writeInTransaction)),
+    activity: serialized(createActivityRepo(db)),
+    meta: serialized(createMetaRepo(db)),
+    clearPrivate: () => serialized({ async clear() {
       await db.withTransactionAsync(async () => {
         await db.execAsync('DELETE FROM loans; DELETE FROM outbox; DELETE FROM sync_meta; DELETE FROM activity_log;');
       });
-    },
+    } }).clear(),
   };
 }
 export type Repositories = ReturnType<typeof createRepositories>;

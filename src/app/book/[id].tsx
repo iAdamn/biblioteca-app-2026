@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { Image } from 'expo-image';
 
 import { availabilityLabel, BookCover } from '@/components/book-views';
 import { Button } from '@/components/button';
@@ -13,15 +14,17 @@ import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/providers/auth-provider';
 import { useData } from '@/providers/data-provider';
 import { describeError } from '@/services/api/client';
+import { pickCover, PermissionDeniedError, type PickedCover, type CoverSource } from '@/services/device/cover-service';
 export default function BookDetailScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const { online, requestLoan, syncNow } = useData();
+  const { repos, online, requestLoan, syncNow, setCover } = useData();
   const { book, loaded, error } = useBook(id);
   const myLoan = useMyLoanForBook(id);
 
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<PickedCover | null>(null);
   const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
 
   if (!loaded) return <LoadingView />;
@@ -34,6 +37,7 @@ export default function BookDetailScreen() {
     myLoan &&
     myLoan.syncState !== 'conflict' &&
     (myLoan.status === 'requested' || myLoan.status === 'approved');
+  const awaitingRetry = myLoan?.operationState === 'attention';
 
   async function onRequest() {
     if (!book) return;
@@ -43,7 +47,7 @@ export default function BookDetailScreen() {
       await requestLoan(book);
       setFeedback({
         error: false,
-        text: 'Solicitud confirmada por el servidor. Puedes verla en Mis préstamos.',
+        text: 'Solicitud guardada en el dispositivo, pendiente de confirmación. Consulta Mis préstamos.',
       });
     } catch (err) {
       setFeedback({
@@ -53,6 +57,25 @@ export default function BookDetailScreen() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function chooseCover(source: CoverSource) {
+    if (!online) { setFeedback({ error: true, text: 'Necesitas conexión con la API para cambiar la portada.' }); return; }
+    setBusy(true); setPreview(null); setFeedback(null);
+    try { const selected = await pickCover(source, repos.activity); if (selected) setPreview(selected); }
+    catch (error) {
+      if (error instanceof PermissionDeniedError) {
+        Alert.alert('Permiso de cámara necesario', 'Puedes permitir la cámara o elegir una imagen desde la galería.',
+          error.canAskAgain ? [{ text: 'Entendido' }] : [{ text: 'Cancelar', style: 'cancel' }, { text: 'Abrir ajustes', onPress: () => void Linking.openSettings() }]);
+      } else setFeedback({ error: true, text: error instanceof Error && ['InvalidImageError','ImageTooLargeError'].includes(error.name) ? error.message : describeError(error) });
+    } finally { setBusy(false); }
+  }
+  async function saveCover() {
+    if (!preview || !book) return;
+    setBusy(true);
+    try { await setCover(book.id, preview); setPreview(null); setFeedback({ error: false, text: 'Portada confirmada y actualizada en SQLite.' }); }
+    catch (error) { setFeedback({ error: true, text: describeError(error) }); }
+    finally { setBusy(false); }
   }
 
   return (
@@ -78,6 +101,8 @@ export default function BookDetailScreen() {
 
         {!librarian ? (
           <View style={styles.actions}>
+            {myLoan?.syncState === 'pending' ? <ThemedText type="smallBold">{myLoan.operationState === 'in_flight' ? 'Enviando · sin confirmación todavía' : 'Pendiente de envío · guardado en SQLite'}</ThemedText> : null}
+            {myLoan?.syncState === 'conflict' ? <ThemedText accessibilityRole="alert">{myLoan.syncError}</ThemedText> : null}
             {myLoan?.syncState === 'synced' && myLoan.status === 'requested' ? (
               <ThemedText type="smallBold" style={{ color: theme.primary }}>
                 Solicitud enviada · esperando al bibliotecario
@@ -90,7 +115,7 @@ export default function BookDetailScreen() {
             ) : null}
             <Button
               title={book.availableCopies > 0 ? 'Solicitar préstamo' : 'Sin ejemplares disponibles'}
-              disabled={!online || book.availableCopies <= 0 || !!hasActive}
+              disabled={book.availableCopies <= 0 || !!hasActive || awaitingRetry}
               loading={busy}
               onPress={onRequest}
               accessibilityHint="Envía una solicitud de préstamo al bibliotecario"
@@ -98,7 +123,16 @@ export default function BookDetailScreen() {
           </View>
         ) : (
           <View style={styles.actions}>
-<ThemedText type="small">La gestión de portadas móviles se incorporará en D04.</ThemedText>
+            <ThemedText type="smallBold">Portada del libro</ThemedText>
+            <Button title="Tomar foto" disabled={busy} onPress={() => void chooseCover('camera')} />
+            <Button title="Elegir de la galería" variant="secondary" disabled={busy} onPress={() => void chooseCover('library')} />
+            {!online ? <ThemedText type="small">Necesitas conexión con la API. Las portadas no se encolan.</ThemedText> : null}
+            {preview ? <View style={{ gap: 12 }}>
+              <ThemedText type="smallBold">Vista previa sin publicar</ThemedText>
+              <Image source={{ uri: preview.previewUri }} style={{ width: 180, height: 240 }} contentFit="contain" accessibilityLabel="Vista previa de la nueva portada" />
+              <Button title="Subir portada" loading={busy} onPress={() => void saveCover()} />
+              <Button title="Cancelar portada" variant="secondary" disabled={busy} onPress={() => setPreview(null)} />
+            </View> : null}
           </View>
         )}
 

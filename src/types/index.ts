@@ -63,4 +63,7 @@ export interface Loan {
 export interface LocalLoan extends Loan {
   syncState: SyncState;
   syncError: string | null;
+  operationState?: OperationState;
 }
+
+export type OperationState = 'queued' | 'in_flight' | 'confirmed' | 'conflict' | 'rejected' | 'attention';

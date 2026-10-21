@@ -8,7 +8,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
  * solo las migraciones que falten. Cada migración nueva se agrega como un `if` más y
  * se sube DATABASE_VERSION; NUNCA se edita una migración que ya salió en una versión publicada.
  */
-export const DATABASE_VERSION = 2;
+export const DATABASE_VERSION = 3;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -97,5 +97,21 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
     version = 2;
   }
 
-  await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+  if (version < 3) {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(`
+        ALTER TABLE outbox ADD COLUMN owner_uid TEXT NOT NULL DEFAULT '';
+        ALTER TABLE outbox ADD COLUMN client_request_id TEXT;
+        ALTER TABLE outbox ADD COLUMN state TEXT NOT NULL DEFAULT 'queued';
+        ALTER TABLE outbox ADD COLUMN send_count INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE outbox ADD COLUMN next_retry_at TEXT;
+        ALTER TABLE outbox ADD COLUMN updated_at TEXT;
+        ALTER TABLE outbox ADD COLUMN acknowledged INTEGER NOT NULL DEFAULT 0;
+        UPDATE outbox SET state = 'attention', last_error = 'Operación antigua sin propietario: no se enviará';
+        CREATE UNIQUE INDEX idx_outbox_owner_request ON outbox(owner_uid, client_request_id);
+        CREATE INDEX idx_outbox_fifo ON outbox(owner_uid, state, id);
+        PRAGMA user_version = 3;
+      `);
+    });
+  }
 }

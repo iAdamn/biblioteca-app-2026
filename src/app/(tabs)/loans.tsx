@@ -19,7 +19,7 @@ type Filter = 'open' | 'all';
 export default function LoansScreen() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { online, syncing, lastError, syncNow, transitionLoan } = useData();
+  const { online, syncing, lastError, syncNow, transitionLoan, dismissLoan } = useData();
   const { loans, status } = useLoans();
   const librarian = user?.role === 'librarian';
 
@@ -89,6 +89,7 @@ export default function LoansScreen() {
             online={online}
             busy={busyId === item.id}
             onAction={onAction}
+            onDismiss={(l) => void dismissLoan(l.id)}
           />
         )}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.two }} />}

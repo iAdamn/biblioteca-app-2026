@@ -27,6 +27,7 @@ export class ApiRequestError extends Error {
     readonly status: number,
     readonly code: ApiErrorCode,
     message: string,
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = 'ApiRequestError';
@@ -84,12 +85,13 @@ export interface ApiClient {
   ): Promise<T>;
 }
 
-function toApiError(status: number, body: unknown): ApiRequestError {
+function toApiError(status: number, body: unknown, retryAfter?: string | null): ApiRequestError {
   const err = (body as { error?: { code?: string; message?: string } } | null)?.error;
   return new ApiRequestError(
     status,
     (err?.code as ApiErrorCode | undefined) ?? 'UNKNOWN',
     err?.message ?? `Error del servidor (${status})`,
+    retryAfter ? Math.max(0, Number.isFinite(Number(retryAfter)) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now()) || undefined : undefined,
   );
 }
 
@@ -160,7 +162,7 @@ export function createApiClient({
     } catch {
       // Respuesta sin cuerpo JSON (ej. 502 de un proxy).
     }
-    if (!res.ok) throw toApiError(res.status, body);
+    if (!res.ok) throw toApiError(res.status, body, res.headers.get('Retry-After'));
     if (body === null) throw new ApiRequestError(502, 'INVALID_RESPONSE', 'Respuesta de la API sin JSON válido.');
     return body as T;
   }
