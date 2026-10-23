@@ -1,6 +1,6 @@
 # Biblioteca móvil
 
-Base funcional D04, 21/10/2026. React Native/Expo, Expo Router, SecureStore y
+Entrega final D05, 22/10/2026 (implementación D03/D04). React Native/Expo, Expo Router, SecureStore y
 SQLite. Consume exclusivamente [la API propia](https://biblioteca-api-2026.vercel.app)
 del [proyecto API/web](https://github.com/iAdamn/biblioteca-api-2026).
 
@@ -103,7 +103,7 @@ La integración D04 se ejecutó aparte:25 controles/25HTTP con SQLite Node y API
 reales; red perdida simulada en transporte, no modo avión. Tipos/lint/export correctos.
 El usuario decidió no realizar pruebas físicas D04. Cámara, galería, permisos y
 reconexión del dispositivo siguen pendientes; los adaptadores simulados no los validan.
-Android D03 conserva su evidencia histórica; iOS solo exportado.
+Android D03 conserva su evidencia histórica. En D05 (22/10) el usuario comunicó que realizó las pruebas físicas y funcionaron bien; el agente no controló/capturó el teléfono ni observó escrituras adicionales en el servidor tras D03. iOS solo exportado.
 
 Solo se declaró directamente expo-file-system~57.0.7, ya presente transitivamente,
 para eliminar temporales propios. No cambiaron versiones resueltas previas.
@@ -130,8 +130,8 @@ El análisis npm omit-dev del21/10 informa56 avisos propagados (45high/11moderat
 sprintf-js y uuid. Incluye herramientas CLI transitivas; el recuento no equivale a
 56 fallos explotables de la app. El alcance ejecutable de cada aviso aún requiere
 triage. Varias sugerencias cambian versiones mayores o son incompatibles con SDK57;
-no se ejecutó audit fix --force. Se conserva lockfile y se deja revisión acotada
-pendiente para entrega. No se certifica ausencia universal de vulnerabilidades.
+no se ejecutó audit fix --force. Triage D05 (22/10): `braces@3.0.3`, `sprintf-js@1.0.3`, `node-forge@1.4.0` y `uuid@7.0.3` pertenecen a herramientas de CLI/Jest/Metro/config-plugins fuera del runtime móvil (`src/` y `dist/`) y sus ramas no tienen parche directo sin cambios mayores incompatibles (`jest@30`, `expo@44`); `decode-uri-component@0.2.2` proviene de `query-string@7.1.3` en `expo-router@57.0.26` (mantenido en `57.0.28`, cuya sugerencia npm apunta a `expo-router@58.0.25`). Se conserva el lockfile compatible con SDK57,
+sin certificar ausencia universal de vulnerabilidades.
 
 Documentación SDK57 consultada para [selector de imágenes](https://docs.expo.dev/versions/v57.0.0/sdk/imagepicker/),
 [manipulación](https://docs.expo.dev/versions/v57.0.0/sdk/imagemanipulator/) y

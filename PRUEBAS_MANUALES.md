@@ -29,7 +29,7 @@ en memoria y SQLite Node: no acredita KeyStore ni navegación física.
 
 El21/10 el usuario decidió no participar en comprobaciones físicas. No hay
 capturas o pruebas de cámara, permisos, modo avión o reconexión nativa D04.
-Estas instrucciones son pendientes; las pruebas Node/adaptadores no las sustituyen.
+Estas instrucciones se dejaron preparadas en D04; las pruebas Node/adaptadores no las sustituyen. En D05 (22/10) el usuario comunicó que realizó las pruebas y funcionaron bien; el agente no capturó el dispositivo ni observó escrituras adicionales en el servidor tras D03.
 
 1. Student: sincronizar con red, abrir catálogo y detalle, activar modo avión,
    solicitar un libro disponible sin préstamo activo. Debe aparecer Pendiente de
